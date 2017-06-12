@@ -4,7 +4,7 @@ from datetime import datetime
 
 import tensorflow as tf
 
-from picasso.ml_frameworks.model import Model
+from picasso.ml_frameworks.model import BaseModel
 
 
 class TFModel(BaseModel):
@@ -35,14 +35,27 @@ class TFModel(BaseModel):
 
         # find newest ckpt and meta files
         try:
-            latest_ckpt_fn = max(glob.iglob(os.path.join(data_dir, '*.ckpt*')),
-                                 key=os.path.getctime)
+            latest_ckpt_fn = max(
+                filter(
+                    # exclude index and meta files which may have earlier
+                    # timestamps
+                    lambda x: os.path.splitext(x)[-1].startswith('.meta') or
+                    os.path.splitext(x)[-1].startswith('.index'),
+                    glob.glob(os.path.join(data_dir, '*.ckpt*'))
+                ),
+                key=os.path.getctime)
             self._latest_ckpt_time = str(
                 datetime.fromtimestamp(os.path.getmtime(latest_ckpt_fn)))
+            # remove any step info that's been appended to the extension
+            fileext_div = latest_ckpt_fn.rfind('.ckpt')
+            additional_ext = latest_ckpt_fn.rfind('.', fileext_div + 1)
+            if additional_ext < 0:
+                latest_ckpt = latest_ckpt_fn
+            else:
+                latest_ckpt = latest_ckpt_fn[:additional_ext]
         except ValueError:
             raise FileNotFoundError('No checkpoint (.ckpt) files '
                                     'available at {}'.format(data_dir))
-        latest_ckpt = latest_ckpt_fn[:latest_ckpt_fn.rfind('.ckpt') + 5]
 
         try:
             latest_meta = max(glob.iglob(os.path.join(data_dir, '*.meta')),

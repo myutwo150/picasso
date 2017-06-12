@@ -72,3 +72,42 @@ class TestBaseModel:
             assert result[0]['prob'] == '{:.3f}'.format(max_val)
             assert result[0]['index'] == example_prob_array[i].argmax()
             assert result[0]['name'] == str(result[0]['index'])
+
+
+class TestKerasModel:
+
+    def test_saved_model(self):
+        # tests that KerasModel can load from a saved model
+        import tempfile
+        from picasso.ml_frameworks.keras.model import KerasModel
+
+        data_path = os.path.join('picasso', 'examples',
+                                 'keras', 'data-volume')
+
+        km = KerasModel()
+        km.load(data_path)
+
+        temp = tempfile.mkdtemp()
+        km.model.save(os.path.join(temp, 'temp.h5'))
+
+        km = KerasModel()
+        km.load(temp)
+
+        assert km.tf_predict_var is not None
+
+
+class TestTensorflowBackend:
+
+    def test_tensorflow_backend(self, client, monkeypatch):
+        """Only tests tensorflow backend loads without error
+
+        """
+
+        from picasso.ml_frameworks.tensorflow.model import TFModel
+        data_path = os.path.join('picasso', 'examples',
+                                 'tensorflow', 'data-volume')
+        tfm = TFModel(tf_predict_var='Softmax:0',
+                      tf_input_var='convolution2d_input_1:0')
+        tfm.load(data_path)
+        assert tfm.tf_predict_var is not None
+        assert tfm.tf_input_var is not None

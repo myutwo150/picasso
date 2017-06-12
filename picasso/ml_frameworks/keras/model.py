@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 
 import keras.backend as K
-from keras.models import model_from_json
+from keras.models import model_from_json, load_model
 
 from picasso.ml_frameworks.model import BaseModel
 
@@ -24,7 +24,6 @@ class KerasModel(BaseModel):
             data_dir (:obj:`str`): location of Keras checkpoint (`.hdf5`) files
                 and model (in `.json`) structure.  The default behavior
                 is to take the latest of each, by OS timestamp.
-
         """
         # find newest ckpt and graph files
         try:
@@ -37,20 +36,25 @@ class KerasModel(BaseModel):
             raise FileNotFoundError('No checkpoint (.hdf5 or .h5) files '
                                     'available at {}'.format(data_dir))
 
+        # for tensorflow compatibility
+        K.set_learning_phase(0)
         try:
             latest_json = max(glob.iglob(os.path.join(data_dir, '*.json')),
                               key=os.path.getctime)
+            with open(latest_json, 'r') as f:
+                model_json = json.loads(f.read())
+                self._model = model_from_json(model_json)
+
+            self._model.load_weights(latest_ckpt)
         except ValueError:
-            raise FileNotFoundError('No graph (.json) files '
-                                    'available at {}'.format(data_dir))
+            try:
+                self._model = load_model(latest_ckpt)
+            except ValueError:
+                raise FileNotFoundError('The (.hdf5 or .h5) files available at'
+                                        '{} don\'t have the model'
+                                        ' architecture.'
+                                        .format(latest_ckpt))
 
-        # for tensorflow compatibility
-        K.set_learning_phase(0)
-        with open(latest_json, 'r') as f:
-            model_json = json.loads(f.read())
-            self._model = model_from_json(model_json)
-
-        self._model.load_weights(latest_ckpt)
         self._sess = K.get_session()
 
         self._tf_predict_var = self._model.outputs[0]
