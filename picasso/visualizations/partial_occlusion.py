@@ -23,8 +23,8 @@ class PartialOcclusion(BaseVisualization):
 
     """
     settings = {
-        'Window': ['0.50', '0.40', '0.30', '0.20', '0.10', '0.05'],
-        'Strides': ['2', '5', '10', '20', '30'],
+        'Window': ['0.30', '0.50', '0.40', '0.20', '0.10', '0.05'],
+        'Strides': ['15', '2', '5', '10', '20', '30'],
         'Occlusion': ['grey', 'black', 'white']
     }
 
@@ -41,7 +41,6 @@ class PartialOcclusion(BaseVisualization):
         self.grid_percent = 0.01
         self.occlusion_method = 'white'
         self.occlusion_value = 255
-        self.initial_resize = (244, 244)
 
     def make_visualization(self, inputs, output_dir, settings=None):
         if settings:
@@ -51,7 +50,7 @@ class PartialOcclusion(BaseVisualization):
             elif self.occlusion_method == 'grey':
                 self.occlusion_value = 128
 
-        # get class predictions as in ClassProbabilities
+        # get class predictions as in TopProbabilities
         pre_processed_arrays = self.model.preprocess([example['data']
                                                      for example in inputs])
         class_predictions = \
@@ -62,10 +61,8 @@ class PartialOcclusion(BaseVisualization):
 
         results = []
         for i, example in enumerate(inputs):
-            im = example['data']
+            im = self.padcrop(example['data'])
             im_format = im.format
-            if self.initial_resize:
-                im = im.resize(self.initial_resize, Image.ANTIALIAS)
 
             occ_im = self.occluded_images(im)
             predictions = self.model.sess.run(
@@ -87,7 +84,8 @@ class PartialOcclusion(BaseVisualization):
                 format=im_format)
 
             filenames = \
-                self.make_heatmaps(predictions,
+                self.make_heatmaps(im,
+                                   predictions,
                                    output_dir,
                                    example['filename'],
                                    decoded_predictions=decoded_predictions[i])
@@ -96,6 +94,24 @@ class PartialOcclusion(BaseVisualization):
                             'predict_probs': decoded_predictions[i],
                             'example_filename': example_filename})
         return results
+
+    def padcrop(self, img, target_size=299):
+        ratio = target_size / img.height
+        img = img.resize((int(round(img.width * ratio)), target_size), resample=Image.BILINEAR)
+        if img.width >= img.height:
+            # landscape image, do central crop
+            left = int(round(img.width / 2 - target_size / 2))
+            return img.crop((left, 0, left + target_size, target_size))
+        else:
+            # portrait image, repeat left and right margins
+            left_margin = img.crop((0, 0, 1, img.height))
+            right_margin = img.crop((img.width - 1, 0, img.width, img.height))
+            new_img = Image.new('RGB', (target_size, target_size))
+            for i in range(target_size // 2):
+                new_img.paste(left_margin, (i, 0))
+                new_img.paste(right_margin, (target_size - i - 1, 0))
+            new_img.paste(img, (int(round((target_size - img.width) / 2)), 0))
+            return new_img
 
     def get_predict_tensor(self):
         # Assume that predict is the softmax
@@ -130,7 +146,7 @@ class PartialOcclusion(BaseVisualization):
                 raise ValueError(error_string(settings['Occlusion'],
                                               'Occlusion'))
 
-    def make_heatmaps(self, predictions,
+    def make_heatmaps(self, base_img, predictions,
                       output_dir, filename,
                       decoded_predictions=None):
         if decoded_predictions:
@@ -142,7 +158,7 @@ class PartialOcclusion(BaseVisualization):
                                                predictions.shape[-1])
         filenames = []
         for i in range(predictions.shape[-1]):
-            grid = stacked_heatmaps[:, :, i]
+            grid = 1 - stacked_heatmaps[:, :, i]
             pyplot.axis('off')
             if i == 0:
                 im = pyplot.imshow(grid, vmin=0, vmax=1)
@@ -156,6 +172,9 @@ class PartialOcclusion(BaseVisualization):
                                                     fn=filename)
             pyplot.savefig(os.path.join(output_dir, hm_filename),
                            format='PNG', bbox_inches='tight', pad_inches=0)
+            img = Image.open(os.path.join(output_dir, hm_filename))
+            img = Image.blend(img, base_img.convert(img.mode).resize(img.size), 0.3)
+            img.save(os.path.join(output_dir, hm_filename))
             filenames.append(hm_filename)
         return filenames
 

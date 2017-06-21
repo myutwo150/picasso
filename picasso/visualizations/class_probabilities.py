@@ -1,7 +1,7 @@
 from picasso.visualizations import BaseVisualization
 
 
-class ClassProbabilities(BaseVisualization):
+class TopProbabilities(BaseVisualization):
     """Display top class probabilities for a given image
 
     This is the simplest kind of visualization -- it merely displays the top

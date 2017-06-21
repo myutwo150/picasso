@@ -43,6 +43,11 @@ from flask import (
     send_from_directory
 )
 
+from keras import backend as K
+config = K.tf.ConfigProto()
+config.gpu_options.allow_growth = True
+K.set_session(K.tf.Session(config=config))
+
 from picasso import app
 from picasso.ml_frameworks.model import generate_model
 from picasso.visualizations import BaseVisualization

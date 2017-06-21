@@ -74,6 +74,7 @@ class SaliencyMaps(BaseVisualization):
             output_fns = []
             output_arrays = np.array([gradient[i] for
                                       gradient in class_gradients])
+
             # if images are color, take the maximum channel
             if output_arrays.shape[-1] == 3:
                 output_arrays = output_arrays.max(-1)
