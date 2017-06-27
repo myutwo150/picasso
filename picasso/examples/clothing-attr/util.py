@@ -21,7 +21,7 @@ def padcrop(img, target_size=299):
     if img.width >= img.height:
         # landscape image, do central crop
         left = int(round(img.width / 2 - target_size / 2))
-        return img.crop((left, 0, left + target_size, target_size))
+        return img.crop((left, 0, left + target_size, target_size)).convert('RGB')
     else:
         # portrait image, repeat left and right margins
         left_margin = img.crop((0, 0, 1, img.height))

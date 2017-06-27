@@ -44,7 +44,7 @@ from flask import (
 )
 
 from keras import backend as K
-config = K.tf.ConfigProto()
+config = K.tf.ConfigProto(intra_op_parallelism_threads=8)
 config.gpu_options.allow_growth = True
 K.set_session(K.tf.Session(config=config))
 
